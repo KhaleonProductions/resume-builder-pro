@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume Builder Pro</title>
+  <meta name="description" content="Create professional resumes and AI-powered cover letters">
+
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- jsPDF for PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">R</div>
+        <div class="logo-text">Resume<span>Pro</span></div>
+      </div>
+
+      <nav>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <a href="#" class="nav-link active" data-section="resume">
+              <span class="nav-icon">📄</span>
+              Resume Builder
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link" data-section="cover-letter">
+              <span class="nav-icon">✉️</span>
+              Cover Letter
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link" data-section="templates">
+              <span class="nav-icon">🎨</span>
+              Templates
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link" data-section="settings">
+              <span class="nav-icon">⚙️</span>
+              Settings
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- API Status -->
+      <div class="settings-panel">
+        <div class="settings-title">
+          AI Assistant
+          <span class="api-status disconnected" id="api-status">Not Connected</span>
+        </div>
+        <p class="text-muted" style="font-size: 12px; margin-bottom: 10px;">
+          Connect OpenAI to generate cover letters and enhance your resume.
+        </p>
+        <button class="btn btn-sm btn-outline btn-block" onclick="app.showAPISettings()">
+          Configure API
+        </button>
+      </div>
+
+      <!-- Premium Banner (shown for free users) -->
+      <div class="premium-banner" id="premium-banner">
+        <h3>Upgrade to Premium</h3>
+        <p>Unlock all templates, cloud sync, and unlimited exports.</p>
+        <button class="btn btn-sm" onclick="app.showPremiumModal()">Learn More</button>
+      </div>
+
+      <!-- User Info (shown when logged in) -->
+      <div class="user-panel hidden" id="user-panel">
+        <div class="flex-between">
+          <div>
+            <div style="font-weight: 600;" id="user-name">User</div>
+            <div class="text-muted" style="font-size: 12px;" id="user-email">user@email.com</div>
+          </div>
+          <button class="btn btn-sm btn-secondary" onclick="app.signOut()">Sign Out</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Resume Builder Section -->
+      <section id="section-resume" class="section active">
+        <div class="header">
+          <div>
+            <h1>Resume Builder</h1>
+            <p class="text-muted">Create a professional resume in minutes</p>
+          </div>
+          <div class="flex gap-1">
+            <button class="btn btn-secondary" onclick="app.previewResume()">Preview</button>
+            <button class="btn btn-primary" onclick="app.downloadResume()">Download PDF</button>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="personal">Personal Info</button>
+          <button class="tab" data-tab="experience">Experience</button>
+          <button class="tab" data-tab="education">Education</button>
+          <button class="tab" data-tab="skills">Skills</button>
+        </div>
+
+        <!-- Personal Info Tab -->
+        <div class="tab-content active" id="tab-personal">
+          <div class="card">
+            <div id="personal-form"></div>
+          </div>
+        </div>
+
+        <!-- Experience Tab -->
+        <div class="tab-content" id="tab-experience">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Work Experience</h3>
+                <p class="card-subtitle">Add your work history, most recent first</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="app.addExperience()">+ Add Position</button>
+            </div>
+            <div id="experience-list"></div>
+          </div>
+        </div>
+
+        <!-- Education Tab -->
+        <div class="tab-content" id="tab-education">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Education</h3>
+                <p class="card-subtitle">Add your educational background</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="app.addEducation()">+ Add Education</button>
+            </div>
+            <div id="education-list"></div>
+          </div>
+        </div>
+
+        <!-- Skills Tab -->
+        <div class="tab-content" id="tab-skills">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Skills & Certifications</h3>
+                <p class="card-subtitle">Highlight your key skills and achievements</p>
+              </div>
+            </div>
+            <div id="skills-form"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cover Letter Section -->
+      <section id="section-cover-letter" class="section hidden">
+        <div class="header">
+          <div>
+            <h1>Cover Letter Generator</h1>
+            <p class="text-muted">Create tailored cover letters with AI assistance</p>
+          </div>
+          <div class="flex gap-1">
+            <button class="btn btn-secondary" onclick="app.previewCoverLetter()">Preview</button>
+            <button class="btn btn-primary" onclick="app.downloadCoverLetter()">Download PDF</button>
+          </div>
+        </div>
+
+        <div class="preview-container">
+          <!-- Job Details Form -->
+          <div class="card">
+            <h3 class="card-title mb-2">Job Details</h3>
+            <div id="job-form"></div>
+            <div class="mt-2">
+              <button class="btn btn-primary btn-block" onclick="app.generateCoverLetter()" id="generate-btn">
+                Generate Cover Letter with AI
+              </button>
+            </div>
+          </div>
+
+          <!-- Cover Letter Preview -->
+          <div class="preview-panel">
+            <div class="preview-header">
+              <span class="preview-title">Cover Letter Preview</span>
+              <div class="preview-actions">
+                <button class="btn btn-sm btn-secondary" onclick="app.editCoverLetter()">Edit</button>
+              </div>
+            </div>
+            <div class="preview-content" id="cover-letter-preview">
+              <p class="text-muted text-center" style="padding: 40px;">
+                Fill in the job details and click "Generate" to create your cover letter.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Templates Section -->
+      <section id="section-templates" class="section hidden">
+        <div class="header">
+          <div>
+            <h1>Resume Templates</h1>
+            <p class="text-muted">Choose a template that fits your style</p>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="resume-templates">Resume Templates</button>
+          <button class="tab" data-tab="cover-templates">Cover Letter Templates</button>
+        </div>
+
+        <div class="tab-content active" id="tab-resume-templates">
+          <div class="template-grid" id="resume-template-grid"></div>
+        </div>
+
+        <div class="tab-content" id="tab-cover-templates">
+          <div class="template-grid" id="cover-template-grid"></div>
+        </div>
+      </section>
+
+      <!-- Settings Section -->
+      <section id="section-settings" class="section hidden">
+        <div class="header">
+          <div>
+            <h1>Settings</h1>
+            <p class="text-muted">Configure your application preferences</p>
+          </div>
+        </div>
+
+        <!-- API Settings -->
+        <div class="card">
+          <h3 class="card-title mb-2">OpenAI API Configuration</h3>
+          <p class="text-muted mb-2">Enter your OpenAI API key to enable AI-powered features.</p>
+
+          <div class="fb-field">
+            <label class="fb-label">API Endpoint</label>
+            <input type="url" class="fb-input" id="api-endpoint"
+                   placeholder="https://api.openai.com/v1/chat/completions"
+                   value="https://api.openai.com/v1/chat/completions">
+          </div>
+
+          <div class="fb-field mt-2">
+            <label class="fb-label">API Key</label>
+            <input type="password" class="fb-input" id="api-key"
+                   placeholder="sk-...">
+            <small class="fb-help">Your API key is stored locally and never sent to our servers.</small>
+          </div>
+
+          <div class="fb-field mt-2">
+            <label class="fb-label">Model</label>
+            <select class="fb-select" id="api-model">
+              <option value="gpt-4o-mini">GPT-4o Mini (Recommended)</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            </select>
+          </div>
+
+          <div class="mt-2">
+            <button class="btn btn-primary" onclick="app.saveAPISettings()">Save API Settings</button>
+            <button class="btn btn-secondary" onclick="app.testAPIConnection()">Test Connection</button>
+          </div>
+        </div>
+
+        <!-- Data Management -->
+        <div class="card mt-2">
+          <h3 class="card-title mb-2">Data Management</h3>
+
+          <div class="flex gap-1">
+            <button class="btn btn-secondary" onclick="app.exportData()">Export Data</button>
+            <button class="btn btn-secondary" onclick="app.importData()">Import Data</button>
+            <button class="btn btn-danger" onclick="app.clearData()">Clear All Data</button>
+          </div>
+        </div>
+
+        <!-- Account (Premium) -->
+        <div class="card mt-2" id="account-card">
+          <h3 class="card-title mb-2">Account</h3>
+          <p class="text-muted mb-2">Sign in to sync your data across devices (Premium feature).</p>
+
+          <div id="auth-container">
+            <button class="btn btn-primary" onclick="app.showAuthModal('login')">Sign In</button>
+            <button class="btn btn-secondary" onclick="app.showAuthModal('signup')">Create Account</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal Container -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">Modal Title</h3>
+        <button class="modal-close" onclick="app.closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer" id="modal-footer"></div>
+    </div>
+  </div>
+
+  <!-- Templates -->
+  <script src="templates/resumes/professional.js"></script>
+  <script src="templates/resumes/modern.js"></script>
+  <script src="templates/resumes/minimal.js"></script>
+  <script src="templates/cover-letters/standard.js"></script>
+
+  <!-- Modules -->
+  <script src="js/modules/storage-manager.js"></script>
+  <script src="js/modules/ai-writer.js"></script>
+  <script src="js/modules/pdf-generator.js"></script>
+  <script src="js/modules/template-engine.js"></script>
+  <script src="js/modules/form-builder.js"></script>
+  <script src="js/modules/auth-module.js"></script>
+
+  <!-- Main App -->
+  <script src="js/app.js"></script>
+</body>
+</html>
