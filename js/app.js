@@ -86,6 +86,11 @@ class ResumeBuilderApp {
     this.storage.saveLocal('coverLetter', this.coverLetterData);
     this.storage.saveLocal('resumeTemplate', this.selectedResumeTemplate);
     this.storage.saveLocal('coverTemplate', this.selectedCoverTemplate);
+
+    // Sync to cloud if premium user
+    if (this.isPremium && this.storage.isCloudEnabled) {
+      this.syncToCloud();
+    }
   }
 
   exportData() {
@@ -830,16 +835,82 @@ class ResumeBuilderApp {
   // ============ AUTH ============
 
   checkAuthState() {
-    // For now, just check local premium flag
-    this.isPremium = this.storage.loadLocal('isPremium') || false;
-    this.updatePremiumUI();
+    // Initialize Firebase if configured
+    if (typeof initializeFirebase === 'function') {
+      const firebaseReady = initializeFirebase();
+
+      if (firebaseReady && typeof firebase !== 'undefined') {
+        // Initialize auth module with Firebase
+        this.auth.init(window.firebaseConfig).then(() => {
+          // Listen for auth state changes
+          firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+              this.currentUser = user;
+              this.isPremium = true; // For now, any logged-in user is premium
+              this.storage.saveLocal('isPremium', true);
+
+              // Update UI with user info
+              const userName = document.getElementById('user-name');
+              const userEmail = document.getElementById('user-email');
+              if (userName) userName.textContent = user.displayName || 'User';
+              if (userEmail) userEmail.textContent = user.email;
+
+              // Initialize cloud storage
+              this.storage.initCloud(firebase.firestore(), user.uid);
+
+              // Sync data from cloud
+              this.syncFromCloud();
+            } else {
+              this.currentUser = null;
+              this.isPremium = false;
+              this.storage.saveLocal('isPremium', false);
+              this.storage.disableCloud();
+            }
+            this.updatePremiumUI();
+          });
+        });
+      } else {
+        // Firebase not configured, use local storage only
+        this.isPremium = this.storage.loadLocal('isPremium') || false;
+        this.updatePremiumUI();
+      }
+    } else {
+      this.isPremium = this.storage.loadLocal('isPremium') || false;
+      this.updatePremiumUI();
+    }
+  }
+
+  async syncFromCloud() {
+    if (!this.storage.isCloudEnabled) return;
+
+    try {
+      const result = await this.storage.loadCloud('data', 'resume');
+      if (result.success && result.data) {
+        this.resumeData = { ...this.getDefaultResumeData(), ...result.data };
+        this.initForms();
+        this.showStatus('Data synced from cloud!', 'success');
+      }
+    } catch (error) {
+      console.error('Cloud sync error:', error);
+    }
+  }
+
+  async syncToCloud() {
+    if (!this.storage.isCloudEnabled) return;
+
+    try {
+      await this.storage.saveCloud('data', 'resume', this.resumeData);
+      await this.storage.saveCloud('data', 'coverLetter', this.coverLetterData);
+    } catch (error) {
+      console.error('Cloud save error:', error);
+    }
   }
 
   updatePremiumUI() {
     const premiumBanner = document.getElementById('premium-banner');
     const userPanel = document.getElementById('user-panel');
 
-    if (this.isPremium) {
+    if (this.isPremium && this.currentUser) {
       premiumBanner?.classList.add('hidden');
       userPanel?.classList.remove('hidden');
     } else {
@@ -850,6 +921,31 @@ class ResumeBuilderApp {
 
   showAuthModal(mode) {
     const isLogin = mode === 'login';
+
+    // Check if Firebase is configured
+    const firebaseConfigured = typeof firebase !== 'undefined' &&
+                               window.firebaseConfig &&
+                               window.firebaseConfig.apiKey !== 'YOUR_API_KEY';
+
+    if (!firebaseConfigured) {
+      this.showModal('Firebase Not Configured', `
+        <div style="padding: 10px;">
+          <p>To enable user accounts, you need to set up Firebase:</p>
+          <ol style="margin: 15px 0; padding-left: 20px;">
+            <li>Go to <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a></li>
+            <li>Create a new project</li>
+            <li>Add a web app and copy the config</li>
+            <li>Paste your config in <code>js/firebase-config.js</code></li>
+            <li>Enable Email/Password and Google authentication</li>
+            <li>Create a Firestore database</li>
+          </ol>
+          <p class="text-muted">See the README for detailed instructions.</p>
+        </div>
+      `, [
+        { text: 'Close', class: 'btn-primary', action: () => this.closeModal() }
+      ]);
+      return;
+    }
 
     this.showModal(isLogin ? 'Sign In' : 'Create Account', `
       <div class="fb-field">
@@ -867,37 +963,120 @@ class ResumeBuilderApp {
       </div>
       ` : ''}
       <div id="auth-error" class="text-danger mt-1"></div>
+      <div class="auth-divider"><span>or</span></div>
+      <button type="button" class="btn btn-secondary btn-block" onclick="app.signInWithGoogle()">
+        Sign in with Google
+      </button>
     `, [
       { text: 'Cancel', class: 'btn-secondary', action: () => this.closeModal() },
       { text: isLogin ? 'Sign In' : 'Create Account', class: 'btn-primary', action: () => {
-        this.showStatus('Authentication requires Firebase setup. See Settings.', 'info');
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-password').value;
+
+        if (isLogin) {
+          app.signInWithEmail(email, password);
+        } else {
+          const confirmPassword = document.getElementById('auth-password-confirm').value;
+          if (password !== confirmPassword) {
+            document.getElementById('auth-error').textContent = 'Passwords do not match';
+            return;
+          }
+          app.signUpWithEmail(email, password);
+        }
+      }}
+    ]);
+  }
+
+  async signInWithEmail(email, password) {
+    try {
+      await firebase.auth().signInWithEmailAndPassword(email, password);
+      this.closeModal();
+      this.showStatus('Signed in successfully!', 'success');
+    } catch (error) {
+      document.getElementById('auth-error').textContent = this.getAuthErrorMessage(error);
+    }
+  }
+
+  async signUpWithEmail(email, password) {
+    try {
+      await firebase.auth().createUserWithEmailAndPassword(email, password);
+      this.closeModal();
+      this.showStatus('Account created successfully!', 'success');
+    } catch (error) {
+      document.getElementById('auth-error').textContent = this.getAuthErrorMessage(error);
+    }
+  }
+
+  async signInWithGoogle() {
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await firebase.auth().signInWithPopup(provider);
+      this.closeModal();
+      this.showStatus('Signed in with Google!', 'success');
+    } catch (error) {
+      this.showStatus('Google sign-in failed: ' + error.message, 'error');
+    }
+  }
+
+  getAuthErrorMessage(error) {
+    const messages = {
+      'auth/email-already-in-use': 'This email is already registered.',
+      'auth/invalid-email': 'Please enter a valid email address.',
+      'auth/weak-password': 'Password should be at least 6 characters.',
+      'auth/user-not-found': 'No account found with this email.',
+      'auth/wrong-password': 'Incorrect password.',
+      'auth/too-many-requests': 'Too many attempts. Please try again later.'
+    };
+    return messages[error.code] || error.message;
+  }
+
+  showPremiumModal() {
+    // Check if pricing function exists (stripe-config.js loaded)
+    const pricingHTML = typeof getPricingHTML === 'function'
+      ? getPricingHTML()
+      : `
+        <div style="text-align: center;">
+          <p>Configure Stripe in <code>js/stripe-config.js</code> to enable payments.</p>
+        </div>
+      `;
+
+    // Use larger modal for pricing
+    const modal = document.getElementById('modal');
+    modal.style.maxWidth = '800px';
+
+    this.showModal('Upgrade to Premium', `
+      <div style="text-align: center; padding: 10px;">
+        <p style="margin-bottom: 20px; color: var(--text-light);">
+          Choose a plan to unlock all features
+        </p>
+        ${pricingHTML}
+        <p style="margin-top: 20px; font-size: 12px; color: var(--text-light);">
+          Or <a href="#" onclick="app.closeModal(); app.showAuthModal('signup'); return false;">create a free account</a>
+          to try premium features for 7 days.
+        </p>
+      </div>
+    `, [
+      { text: 'Maybe Later', class: 'btn-secondary', action: () => {
+        document.getElementById('modal').style.maxWidth = '500px';
         this.closeModal();
       }}
     ]);
   }
 
-  showPremiumModal() {
-    this.showModal('Upgrade to Premium', `
-      <div style="text-align: center; padding: 20px;">
-        <h3 style="margin-bottom: 15px;">Unlock All Features</h3>
-        <ul style="text-align: left; margin-bottom: 20px; list-style: none; padding: 0;">
-          <li style="margin-bottom: 10px;">✅ All premium templates</li>
-          <li style="margin-bottom: 10px;">✅ Cloud sync across devices</li>
-          <li style="margin-bottom: 10px;">✅ Unlimited PDF exports</li>
-          <li style="margin-bottom: 10px;">✅ Priority AI generation</li>
-        </ul>
-        <p class="text-muted">Premium features require setting up Firebase and Stripe integration.</p>
-      </div>
-    `, [
-      { text: 'Maybe Later', class: 'btn-secondary', action: () => this.closeModal() }
-    ]);
-  }
-
-  signOut() {
-    this.isPremium = false;
-    this.storage.saveLocal('isPremium', false);
-    this.updatePremiumUI();
-    this.showStatus('Signed out.', 'info');
+  async signOut() {
+    try {
+      if (typeof firebase !== 'undefined' && firebase.auth) {
+        await firebase.auth().signOut();
+      }
+      this.currentUser = null;
+      this.isPremium = false;
+      this.storage.saveLocal('isPremium', false);
+      this.storage.disableCloud();
+      this.updatePremiumUI();
+      this.showStatus('Signed out.', 'info');
+    } catch (error) {
+      this.showStatus('Sign out error: ' + error.message, 'error');
+    }
   }
 
   // ============ UI HELPERS ============
