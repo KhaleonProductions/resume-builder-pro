@@ -23,7 +23,7 @@ class AuthModule {
    * @param {object} firebaseConfig - Firebase configuration object
    */
   async init(firebaseConfig) {
-    if (this.isInitialized) return;
+    if (this.isInitialized) return { success: true };
 
     try {
       // Check if Firebase is loaded

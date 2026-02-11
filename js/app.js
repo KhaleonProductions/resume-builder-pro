@@ -836,12 +836,11 @@ class ResumeBuilderApp {
 
   checkAuthState() {
     // Initialize Firebase if configured
-    if (typeof initializeFirebase === 'function') {
-      const firebaseReady = initializeFirebase();
+    try {
+      if (typeof initializeFirebase === 'function') {
+        const firebaseReady = initializeFirebase();
 
-      if (firebaseReady && typeof firebase !== 'undefined') {
-        // Initialize auth module with Firebase
-        this.auth.init(window.firebaseConfig).then(() => {
+        if (firebaseReady && typeof firebase !== 'undefined') {
           // Listen for auth state changes
           firebase.auth().onAuthStateChanged((user) => {
             if (user) {
@@ -856,10 +855,12 @@ class ResumeBuilderApp {
               if (userEmail) userEmail.textContent = user.email;
 
               // Initialize cloud storage
-              this.storage.initCloud(firebase.firestore(), user.uid);
-
-              // Sync data from cloud
-              this.syncFromCloud();
+              try {
+                this.storage.initCloud(firebase.firestore(), user.uid);
+                this.syncFromCloud();
+              } catch (e) {
+                console.error('Cloud storage init error:', e);
+              }
             } else {
               this.currentUser = null;
               this.isPremium = false;
@@ -868,13 +869,17 @@ class ResumeBuilderApp {
             }
             this.updatePremiumUI();
           });
-        });
+        } else {
+          // Firebase not configured, use local storage only
+          this.isPremium = this.storage.loadLocal('isPremium') || false;
+          this.updatePremiumUI();
+        }
       } else {
-        // Firebase not configured, use local storage only
         this.isPremium = this.storage.loadLocal('isPremium') || false;
         this.updatePremiumUI();
       }
-    } else {
+    } catch (error) {
+      console.error('Auth state check error:', error);
       this.isPremium = this.storage.loadLocal('isPremium') || false;
       this.updatePremiumUI();
     }
