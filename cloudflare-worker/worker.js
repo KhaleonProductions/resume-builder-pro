@@ -1,26 +1,22 @@
 /**
- * Cloudflare Worker - OpenAI API Proxy
- *
- * This worker proxies requests to OpenAI's API, adding your API key server-side.
- * This solves CORS issues and keeps your API key secure.
- *
- * DEPLOYMENT INSTRUCTIONS:
- * 1. Go to https://dash.cloudflare.com/
- * 2. Click "Workers & Pages" in the left sidebar
- * 3. Click "Create application" → "Create Worker"
- * 4. Name it "openai-proxy" and click "Deploy"
- * 5. Click "Edit code" and replace everything with this file's contents
- * 6. Click "Save and deploy"
- * 7. Go to Settings → Variables → Add variable:
- *    - Name: OPENAI_API_KEY
- *    - Value: your OpenAI API key (sk-...)
- *    - Click "Encrypt" to hide it
- * 8. Your endpoint will be: https://openai-proxy.<your-subdomain>.workers.dev/v1/chat/completions
+ * Cloudflare Worker - Azure OpenAI API Proxy
  */
+
+const AZURE_CONFIG = {
+  endpoint: "https://sam-m9i3ejwi-eastus2.cognitiveservices.azure.com",
+  apiVersion: "2024-02-15-preview",
+  deployments: {
+    "gpt-4o-mini": "gpt-5-mini",
+    "gpt-4o": "gpt-5.2",
+    "gpt-4-turbo": "gpt-5.2",
+    "gpt-3.5-turbo": "gpt-5-nano",
+    "default": "gpt-5.2"
+  }
+};
 
 export default {
   async fetch(request, env, ctx) {
-    // Handle CORS preflight requests
+    // Handle CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, {
         headers: {
@@ -32,70 +28,81 @@ export default {
       });
     }
 
-    // Only allow POST requests
-    if (request.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), {
-        status: 405,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+    // Test endpoint - GET shows status
+    if (request.method === "GET") {
+      const hasKey = !!env.AZURE_API_KEY;
+      return new Response(JSON.stringify({
+        status: "Worker running",
+        azure_key_configured: hasKey,
+        endpoint: AZURE_CONFIG.endpoint,
+        message: hasKey ? "Ready to proxy requests" : "ERROR: AZURE_API_KEY not set in Variables"
+      }, null, 2), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     }
 
-    // Check if API key is configured
-    const apiKey = env.OPENAI_API_KEY;
+    // Only allow POST
+    if (request.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
+        status: 405,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    // Check API key
+    const apiKey = env.AZURE_API_KEY;
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "OPENAI_API_KEY not configured in worker" }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
-        }
+        JSON.stringify({ error: "AZURE_API_KEY not configured. Add it in Worker Settings → Variables." }),
+        { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
       );
     }
 
     try {
-      // Get the request body
       const body = await request.json();
+      const requestedModel = body.model || "default";
+      const deployment = AZURE_CONFIG.deployments[requestedModel] || AZURE_CONFIG.deployments.default;
 
-      // Forward request to OpenAI
-      const openaiResponse = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify(body),
-        }
-      );
+      const azureBody = { ...body };
+      delete azureBody.model;
 
-      // Get response data
-      const data = await openaiResponse.json();
+      // Azure's newer models use max_completion_tokens instead of max_tokens
+      if (azureBody.max_tokens) {
+        azureBody.max_completion_tokens = azureBody.max_tokens;
+        delete azureBody.max_tokens;
+      }
 
-      // Return response with CORS headers
+      // Some Azure models only support temperature of 1
+      if (azureBody.temperature !== undefined) {
+        delete azureBody.temperature;
+      }
+
+      const azureUrl = `${AZURE_CONFIG.endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${AZURE_CONFIG.apiVersion}`;
+
+      console.log("Calling Azure:", azureUrl);
+
+      const azureResponse = await fetch(azureUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "api-key": apiKey },
+        body: JSON.stringify(azureBody),
+      });
+
+      const data = await azureResponse.json();
+
+      // Log error responses for debugging
+      if (!azureResponse.ok) {
+        console.error("Azure error:", JSON.stringify(data));
+      }
+
       return new Response(JSON.stringify(data), {
-        status: openaiResponse.status,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        status: azureResponse.status,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     } catch (error) {
+      console.error("Worker error:", error.message);
       return new Response(
-        JSON.stringify({ error: error.message || "Internal server error" }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
-        }
+        JSON.stringify({ error: error.message, details: "Check worker logs for more info" }),
+        { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
       );
     }
   },
