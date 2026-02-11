@@ -286,10 +286,7 @@ class TemplateEngine {
   }
 }
 
-// Export for ES6 modules
-export { TemplateEngine };
-
-// Export for non-module usage
+// Export for browser usage
 if (typeof window !== 'undefined') {
   window.TemplateEngine = TemplateEngine;
 }

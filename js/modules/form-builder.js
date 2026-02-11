@@ -560,10 +560,7 @@ class FormBuilder {
   }
 }
 
-// Export for ES6 modules
-export { FormBuilder };
-
-// Export for non-module usage
+// Export for browser usage
 if (typeof window !== 'undefined') {
   window.FormBuilder = FormBuilder;
 }

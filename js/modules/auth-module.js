@@ -383,10 +383,7 @@ class AuthModule {
   }
 }
 
-// Export for ES6 modules
-export { AuthModule };
-
-// Export for non-module usage
+// Export for browser usage
 if (typeof window !== 'undefined') {
   window.AuthModule = AuthModule;
 }

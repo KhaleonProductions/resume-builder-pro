@@ -242,10 +242,7 @@ Return as a JSON array of strings, e.g., ["Skill 1", "Skill 2"]`;
   }
 }
 
-// Export for ES6 modules
-export { AIWriter };
-
-// Export for non-module usage
+// Export for browser usage
 if (typeof window !== 'undefined') {
   window.AIWriter = AIWriter;
 }

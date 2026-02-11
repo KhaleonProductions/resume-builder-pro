@@ -330,10 +330,7 @@ class PDFGenerator {
   }
 }
 
-// Export for ES6 modules
-export { PDFGenerator };
-
-// Export for non-module usage
+// Export for browser usage
 if (typeof window !== 'undefined') {
   window.PDFGenerator = PDFGenerator;
 }

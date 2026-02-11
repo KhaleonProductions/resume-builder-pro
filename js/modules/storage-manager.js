@@ -260,10 +260,7 @@ class StorageManager {
   }
 }
 
-// Export for ES6 modules
-export { StorageManager };
-
-// Export for non-module usage
+// Export for browser usage
 if (typeof window !== 'undefined') {
   window.StorageManager = StorageManager;
 }
