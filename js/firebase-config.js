@@ -21,12 +21,13 @@
  */
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyBQG8w4B6rr29kzpP8MF3awFDOC_YSLuKg", 
+    authDomain: "resume-builder-pro-b7a54.firebaseapp.com",
+    projectId: "resume-builder-pro-b7a54",
+    storageBucket: "resume-builder-pro-b7a54.firebasestorage.app",
+    messagingSenderId: "823690597083",
+    appId: "1:823690597083:web:b7120d24aa135e9c5932fe",
+    measurementId: "G-68M6FNJ7F3"
 };
 
 // Initialize Firebase when config is ready

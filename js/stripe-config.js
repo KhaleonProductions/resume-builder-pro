@@ -24,7 +24,7 @@
 const stripeConfig = {
   // Replace with your actual Stripe payment link
   // Create one at: https://dashboard.stripe.com/payment-links
-  paymentLink: "https://buy.stripe.com/YOUR_PAYMENT_LINK_ID",
+    paymentLink: "https://buy.stripe.com/test_8x27sNakUcTYbE2aG43oA00",
 
   // Your publishable key (only needed for Stripe Checkout integration)
   publishableKey: "pk_test_YOUR_PUBLISHABLE_KEY",
