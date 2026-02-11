@@ -174,24 +174,26 @@ class ResumeBuilderApp {
 
   saveAPISettings() {
     const endpoint = document.getElementById('api-endpoint').value;
-    const apiKey = document.getElementById('api-key').value;
     const model = document.getElementById('api-model').value;
 
+    if (!endpoint) {
+      this.showStatus('Please enter your Cloudflare Worker endpoint.', 'error');
+      return;
+    }
+
     this.storage.saveLocal('apiEndpoint', endpoint);
-    this.storage.saveLocal('apiKey', apiKey);
     this.storage.saveLocal('apiModel', model);
 
     this.ai.setEndpoint(endpoint);
-    this.ai.setApiKey(apiKey);
     this.ai.setModel(model);
 
     this.updateAPIStatus();
-    this.showStatus('API settings saved!', 'success');
+    this.showStatus('Settings saved!', 'success');
   }
 
   async testAPIConnection() {
     if (!this.ai.isConfigured()) {
-      this.showStatus('Please configure your API key first.', 'error');
+      this.showStatus('Please configure your Cloudflare Worker endpoint first.', 'error');
       return;
     }
 

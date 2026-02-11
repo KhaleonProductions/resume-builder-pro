@@ -244,21 +244,14 @@
 
         <!-- API Settings -->
         <div class="card">
-          <h3 class="card-title mb-2">OpenAI API Configuration</h3>
-          <p class="text-muted mb-2">Enter your OpenAI API key to enable AI-powered features.</p>
+          <h3 class="card-title mb-2">AI Configuration</h3>
+          <p class="text-muted mb-2">Configure the AI endpoint for cover letter generation.</p>
 
           <div class="fb-field">
-            <label class="fb-label">API Endpoint</label>
+            <label class="fb-label">API Endpoint (Cloudflare Worker)</label>
             <input type="url" class="fb-input" id="api-endpoint"
-                   placeholder="https://api.openai.com/v1/chat/completions"
-                   value="https://api.openai.com/v1/chat/completions">
-          </div>
-
-          <div class="fb-field mt-2">
-            <label class="fb-label">API Key</label>
-            <input type="password" class="fb-input" id="api-key"
-                   placeholder="sk-...">
-            <small class="fb-help">Your API key is stored locally and never sent to our servers.</small>
+                   placeholder="https://openai-proxy.your-subdomain.workers.dev/v1/chat/completions">
+            <small class="fb-help">Enter your Cloudflare Worker URL. Your API key is stored securely in the worker.</small>
           </div>
 
           <div class="fb-field mt-2">
@@ -272,7 +265,7 @@
           </div>
 
           <div class="mt-2">
-            <button class="btn btn-primary" onclick="app.saveAPISettings()">Save API Settings</button>
+            <button class="btn btn-primary" onclick="app.saveAPISettings()">Save Settings</button>
             <button class="btn btn-secondary" onclick="app.testAPIConnection()">Test Connection</button>
           </div>
         </div>

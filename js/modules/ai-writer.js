@@ -38,10 +38,14 @@ class AIWriter {
   }
 
   /**
-   * Check if API is configured
+   * Check if API is configured (endpoint is set and not default OpenAI)
    */
   isConfigured() {
-    return this.apiKey !== null && this.apiKey.length > 0;
+    // Configured if we have a custom endpoint (Cloudflare Worker) OR an API key
+    const hasCustomEndpoint = this.endpoint &&
+      !this.endpoint.includes('api.openai.com');
+    const hasApiKey = this.apiKey !== null && this.apiKey.length > 0;
+    return hasCustomEndpoint || hasApiKey;
   }
 
   /**
@@ -52,7 +56,7 @@ class AIWriter {
    */
   async complete(systemPrompt, userPrompt, options = {}) {
     if (!this.isConfigured()) {
-      return { success: false, error: 'API key not configured' };
+      return { success: false, error: 'API endpoint not configured. Go to Settings to set up your Cloudflare Worker endpoint.' };
     }
 
     const requestBody = {
@@ -65,13 +69,18 @@ class AIWriter {
       temperature: options.temperature || this.temperature
     };
 
+    // Build headers - only add Authorization if we have an API key
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    if (this.apiKey) {
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
+    }
+
     try {
       const response = await fetch(this.endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
+        headers: headers,
         body: JSON.stringify(requestBody)
       });
 
